@@ -178,6 +178,34 @@ body.soloD .sheet td.d{background:var(--c);color:var(--t,#031128);box-shadow:ins
 #viewer.open{display:flex}#viewer .vb{display:flex;gap:10px;justify-content:flex-end}
 #viewer .vc{flex:1;overflow:auto;text-align:center}#viewer img{max-width:100%;border-radius:6px}#viewer iframe{width:100%;height:100%;border:0;background:#fff}
 
+#printsheet{display:none}
+@media print{
+ body.printing>*:not(#printsheet){display:none!important}
+ html,body.printing{background:#fff!important;margin:0!important;padding:0!important}
+ #printsheet{width:100%;box-sizing:border-box}
+ #printsheet{display:block!important;color:#000;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11pt}
+ @page{size:A4;margin:11mm}
+}
+#printsheet .fh{width:100%;border-collapse:collapse;border:2px solid #222;margin-bottom:6px}
+#printsheet .fh td{border:1.5px solid #222;padding:6px 10px;vertical-align:middle}
+#printsheet .flg{font-weight:900;font-style:italic;font-size:21pt;color:#d81f26;letter-spacing:1px;line-height:1}
+#printsheet .flg small{display:block;background:#222;color:#fff;font-size:7.5pt;font-style:normal;letter-spacing:2px;padding:1px 6px;margin-top:2px;text-align:center}
+#printsheet .tt{text-align:center;font-weight:700;font-size:13pt}
+#printsheet .rg{text-align:center;font-size:8pt;width:90px;white-space:nowrap}
+#printsheet .lg{border:2px solid #222;padding:6px 10px;text-align:center;font-size:12.5pt;letter-spacing:1px;margin-bottom:6px}
+#printsheet .bar{background:#6b6b6b;color:#fff;font-weight:700;text-align:right;padding:2px 10px;margin:10px 0 6px;font-size:10.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#printsheet .sec{overflow:hidden}
+#printsheet .ph{float:right;width:3.6cm;height:4.4cm;border:1.5px solid #222;margin:0 0 6px 12px;display:flex;align-items:center;justify-content:center}
+#printsheet .ph img{width:100%;height:100%;object-fit:cover}
+#printsheet .ln{display:flex;gap:8px;margin:7px 0;align-items:flex-end}
+#printsheet .ln b{font-weight:400;white-space:nowrap}
+#printsheet .ln span{flex:1;border-bottom:1px solid #222;min-height:15px;padding:0 4px;font-family:'Comic Sans MS','Segoe Print',cursive;color:#1a2b8a;font-size:10.5pt}
+#printsheet table.t{width:100%;border-collapse:collapse;margin:6px 0}
+#printsheet table.t td,#printsheet table.t th{border:1.5px solid #222;padding:4px 6px;font-size:10pt;height:20px;text-align:left}
+#printsheet table.t td.c{text-align:center;color:#1a2b8a;font-weight:700}
+#printsheet .hd{font-weight:700;margin:12px 0 2px}
+#printsheet .box{display:inline-block;width:11px;height:11px;border:1.3px solid #222;vertical-align:-1px;margin-left:4px;text-align:center;line-height:10px;font-size:10px;color:#1a2b8a;font-weight:700}
+
 #login{position:fixed;inset:0;z-index:100;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
 #login.on{display:flex}
 #login form{width:100%;max-width:360px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:26px;display:flex;flex-direction:column;gap:12px}
@@ -203,6 +231,7 @@ body.soloD .sheet td.d{background:var(--c);color:var(--t,#031128);box-shadow:ins
   <main id="view"></main>
 </div>
 <div id="viewer"></div>
+<div id="printsheet"></div>
 <div id="login"><form id="loginForm" autocomplete="on">
 <h2>Roster Personal Vicuña</h2><p>Ingresá con tu usuario para ver el roster y los datos del personal.</p>
 <input id="lEmail" type="email" placeholder="Correo" autocomplete="username" required>
@@ -491,7 +520,7 @@ function viewPeople(){
     (al.length?'<div class="card alerts"><h3 style="font-size:20px;margin-bottom:6px">Para renovar</h3><ul style="margin:0;padding-left:18px">'+al.map(a=>'<li><b>'+esc(a.p.nombre)+'</b> · '+esc(a.what)+' · <span class="tag '+a.i.k+'">'+esc(a.i.txt)+'</span></li>').join('')+'</ul></div>':'')+
     '<div class="row" style="margin-bottom:10px"><input type="text" id="q" placeholder="Buscar por nombre, DNI, legajo o función" value="'+esc(S.q)+'" style="max-width:340px">'+
     '<select id="fg" style="width:auto"><option value="all">Todos los grupos</option>'+groupsList().map(g=>'<option value="'+esc(g.id)+'"'+(S.filterG===g.id?' selected':'')+'>'+esc(g.nombre)+'</option>').join('')+'<option value="relevo"'+(S.filterG==='relevo'?' selected':'')+'>Relevos</option></select>'+
-    '<span class="spacer"></span>'+(nBajas?'<button class="btn" data-act="togbajas">'+(S.showBajas?'Ocultar bajas':'Ver bajas ('+nBajas+')')+'</button>':'')+'<button class="btn" data-act="copytalles">Copiar lista de talles</button><button class="btn primary" data-act="add">+ Agregar personal</button></div>'+
+    '<span class="spacer"></span>'+(nBajas?'<button class="btn" data-act="togbajas">'+(S.showBajas?'Ocultar bajas':'Ver bajas ('+nBajas+')')+'</button>':'')+'<button class="btn" data-act="printblank">Imprimir ficha en blanco</button><button class="btn" data-act="copytalles">Copiar lista de talles</button><button class="btn primary" data-act="add">+ Agregar personal</button></div>'+
     '<div class="tbl-wrap"><table class="list"><thead><tr><th>Nombre</th><th>Grupo</th><th>Legajo / DNI</th><th>Apto médico</th><th>Otros certificados</th><th>Talles</th><th></th></tr></thead><tbody>'+
     (rows||'<tr><td colspan="7" class="empty">No hay personal para mostrar.</td></tr>')+'</tbody></table></div>';
 }
@@ -568,10 +597,50 @@ function openModal(id){
 function closeModal(){$('#modal').classList.remove('open');$('#modal').innerHTML='';M=null;}
 function fv(id){const e=document.getElementById(id);return e?e.value.trim():'';}
 function readForm(){
-  const d=M.d; ['nombre','funcion','dni','cuil','legajo','nacimiento','ingreso','telefono','domicilio','localidad','estadoCivil','nacionalidad','sangre','nivelEdu','titulos','emergNombre','emergTel','notas','bajaFecha','bajaMotivo','trabajos'].forEach(k=>d[k]=fv('f_'+k));
+  const d=M.d; ['nombre','funcion','dni','cuil','legajo','nacimiento','ingreso','telefono','domicilio','provincia','barrio','vivienda','localidad','estadoCivil','nacionalidad','sangre','nivelEdu','titulos','emergNombre','emergTel','notas','bajaFecha','bajaMotivo','trabajos'].forEach(k=>d[k]=fv('f_'+k));
   d.grupo=fv('f_grupo'); d.talles={camisa:fv('t_camisa'),pantalon:fv('t_pantalon'),calzado:fv('t_calzado'),campera:fv('t_campera'),guantes:fv('t_guantes'),obs:fv('t_obs')};
   d.medicos=[...document.querySelectorAll('[data-med]')].map(r=>({tipo:r.querySelector('.m_tipo').value,emision:r.querySelector('.m_em').value,vencimiento:r.querySelector('.m_ve').value,obs:r.querySelector('.m_ob').value.trim()}));
   d.certs=[...document.querySelectorAll('[data-cert]')].map(r=>({nombre:r.querySelector('.c_nom').value.trim(),emision:r.querySelector('.c_em').value,vencimiento:r.querySelector('.c_ve').value}));
+}
+function fdmy(iso){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?m[3]+'/'+m[2]+'/'+m[1]:(iso||'');}
+function eduOf(p){
+  const lv=['primario','secundario','terciario','universitario'],r={};
+  if(p.edu)return p.edu;
+  String(p.nivelEdu||'').toLowerCase().split(/[,;]/).forEach(seg=>{const st=/incompleto/.test(seg)?'i':/completo/.test(seg)?'c':'x';lv.forEach(l=>{if(seg.includes(l))r[l]=st;});});
+  return r;
+}
+function fichaHTML(p){
+  const e=p.nombre?esc:()=>'', V=x=>esc(x||'');
+  const viv=p.vivienda||((/vivienda\s+(propia|alquilada)/i.exec(p.domicilio||'')||[])[1]||'').toLowerCase();
+  const ck=(on)=>'<i class="box">'+(on?'✓':'')+'</i>';
+  const ed=eduOf(p), lv=[['primario','Primario'],['secundario','Secundario'],['terciario','Terciario'],['universitario','Universitario']];
+  const dom=(p.domicilio||'').replace(/\.?\s*vivienda\s+(propia|alquilada)\.?/i,'').trim();
+  const trab=String(p.trabajos||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>l.split(/\s+[—–-]\s+/));
+  while(trab.length<5)trab.push([]);
+  const ln=(l,v)=>'<div class="ln"><b>'+l+':</b><span>'+V(v)+'</span></div>';
+  return '<table class="fh"><tr><td style="width:150px"><div class="flg">FREDDY<small>EL TALLER</small></div></td><td class="tt">FICHA PERSONAL</td><td class="rg">Reg. 13-01</td></tr></table>'+
+  '<div class="lg">LEGAJO PERSONAL Nº <u>&nbsp;'+V(p.legajo)+'&nbsp;&nbsp;&nbsp;&nbsp;</u></div>'+
+  '<div class="bar">DATOS PERSONALES</div><div class="sec"><div class="ph">'+(p.foto?'<img alt="" src="'+p.foto+'">':'')+'</div>'+
+  ln('Apellido y Nombre',p.nombre)+ln('Tipo y N° de Documento',p.dni?'DNI '+p.dni:'')+ln('Fecha de Nacimiento',fdmy(p.nacimiento))+ln('Provincia',p.provincia||(p.nombre?'San Juan':''))+ln('Nacionalidad',p.nacionalidad)+
+  ln('Domicilio',dom)+'</div>'+
+  '<div class="ln"><b>Barrio:</b><span style="flex:2">'+V(p.barrio)+'</span><b>Localidad / CP:</b><span style="flex:2">'+V(p.localidad)+'</span></div>'+
+  '<div class="ln"><b>Vivienda:</b><b>Propia'+ck(viv==='propia')+'</b><b>Alquilada'+ck(viv==='alquilada')+'</b><b>Otro'+ck(viv==='otro')+'</b><span></span></div>'+
+  ln('Teléfono',p.telefono)+'<div class="ln"><b>Estado Civil:</b><span style="flex:1">'+V(p.estadoCivil)+'</span><b>Grupo Sanguíneo:</b><span style="flex:1">'+V(p.sangre)+'</span></div>'+
+  '<div class="ln" style="margin-top:14px"><b>Firma Normal y reducida:</b><span></span></div>'+
+  '<div class="bar">DATOS LABORALES</div>'+
+  '<div class="ln"><b>Fecha de Ingreso:</b><span style="flex:1">'+V(fdmy(p.ingreso))+'</span><b>CUIL:</b><span style="flex:1">'+V(p.cuil)+'</span></div>'+
+  ln('Puesto Asignado',p.funcion)+
+  '<table class="t" style="margin-top:10px"><tr><th style="width:15%">Nivel Educacional</th>'+lv.map(x=>'<th>'+x[1]+ck(!!ed[x[0]])+'</th>').join('')+'</tr>'+
+  '<tr><td>Completo</td>'+lv.map(x=>'<td class="c">'+(ed[x[0]]==='c'?'✓':'')+'</td>').join('')+'</tr><tr><td>Incompleto</td>'+lv.map(x=>'<td class="c">'+(ed[x[0]]==='i'?'✓':'')+'</td>').join('')+'</tr></table>'+
+  ln('Títulos Obtenidos',p.titulos)+
+  '<div class="hd">Trabajos Anteriores:</div><table class="t"><tr><th style="width:42%">Nombre de la empresa y/o rubro</th><th style="width:16%">Período</th><th>Motivos por los que dejó de trabajar</th></tr>'+
+  trab.slice(0,6).map(r=>'<tr><td>'+V(r[0])+'</td><td>'+V(r[1])+'</td><td>'+V(r[2])+'</td></tr>').join('')+'</table>';
+}
+function printFicha(p){
+  const ps=$('#printsheet'); ps.innerHTML=fichaHTML(p||{});
+  document.body.classList.add('printing');
+  const done=()=>{document.body.classList.remove('printing');window.removeEventListener('afterprint',done);};
+  window.addEventListener('afterprint',done); setTimeout(()=>{window.print();setTimeout(done,1500);},80);
 }
 const DOCT=['Ficha de legajo','DNI','Certificado médico','Certificado / capacitación','Otro'];
 function photoBlock(d){
@@ -628,7 +697,7 @@ function drawModal(){
     '<label class="f">Grupo<select id="f_grupo">'+gopts+'</select></label>'+inp('f_legajo','Legajo',d.legajo)+inp('f_ingreso','Fecha de ingreso',d.ingreso,'date')+
     '<label class="f">Situación<select id="f_estado"><option value="alta"'+(d.activo===false?'':' selected')+'>En el contrato</option><option value="baja"'+(d.activo===false?' selected':'')+'>De baja</option></select></label>'+
     inp('f_bajaFecha','Fecha de baja',d.bajaFecha,'date')+inp('f_bajaMotivo','Motivo de la baja',d.bajaMotivo)+'</div><p class="next" style="margin:8px 0 0">Si lo pasás a "De baja", sale del calendario y de las listas pero conserva su ficha. Se ve con "Ver bajas" en Personal.</p></fieldset>'+
-  '<fieldset><legend>Datos personales</legend><div class="fgrid">'+inp('f_dni','DNI',d.dni)+inp('f_cuil','CUIL',d.cuil)+inp('f_nacimiento','Fecha de nacimiento',d.nacimiento,'date')+inp('f_telefono','Teléfono',d.telefono,'tel')+inp('f_domicilio','Domicilio',d.domicilio)+inp('f_localidad','Localidad / CP',d.localidad)+inp('f_nacionalidad','Nacionalidad',d.nacionalidad)+inp('f_estadoCivil','Estado civil',d.estadoCivil)+inp('f_sangre','Grupo sanguíneo',d.sangre)+
+  '<fieldset><legend>Datos personales</legend><div class="fgrid">'+inp('f_dni','DNI',d.dni)+inp('f_cuil','CUIL',d.cuil)+inp('f_nacimiento','Fecha de nacimiento',d.nacimiento,'date')+inp('f_telefono','Teléfono',d.telefono,'tel')+inp('f_domicilio','Domicilio',d.domicilio)+inp('f_barrio','Barrio',d.barrio)+inp('f_localidad','Localidad / CP',d.localidad)+inp('f_provincia','Provincia',d.provincia||'San Juan')+'<label class="f">Vivienda<select id="f_vivienda"><option value="">—</option>'+['propia','alquilada','otro'].map(o=>'<option value="'+o+'"'+(d.vivienda===o?' selected':'')+'>'+o[0].toUpperCase()+o.slice(1)+'</option>').join('')+'</select></label>'+inp('f_nacionalidad','Nacionalidad',d.nacionalidad)+inp('f_estadoCivil','Estado civil',d.estadoCivil)+inp('f_sangre','Grupo sanguíneo',d.sangre)+
     inp('f_emergNombre','Contacto de emergencia',d.emergNombre)+inp('f_emergTel','Teléfono de emergencia',d.emergTel,'tel')+'</div></fieldset>'+
   '<fieldset><legend>Estudios y trabajos anteriores</legend><div class="fgrid">'+inp('f_nivelEdu','Nivel educativo',d.nivelEdu)+inp('f_titulos','Títulos obtenidos',d.titulos)+'</div><label class="f" style="margin-top:8px">Trabajos anteriores (empresa, período, motivo)<textarea id="f_trabajos">'+esc(d.trabajos||'')+'</textarea></label></fieldset>'+
   '<fieldset><legend>Talles de ropa de trabajo</legend><div class="fgrid">'+inp('t_camisa','Camisa / remera',t.camisa)+inp('t_pantalon','Pantalón',t.pantalon)+inp('t_calzado','Calzado',t.calzado)+inp('t_campera','Campera / abrigo',t.campera)+inp('t_guantes','Guantes',t.guantes)+inp('t_obs','Observaciones',t.obs)+'</div></fieldset>'+
@@ -637,7 +706,7 @@ function drawModal(){
   docsBlock()+
   '<fieldset><legend>Notas</legend><textarea id="f_notas">'+esc(d.notas||'')+'</textarea></fieldset>'+
   '</div><footer>'+(M.id?'<button class="btn danger" data-act="delperson">'+(S.confirm==='p:'+M.id?'Confirmar: borrar persona':'Borrar persona')+'</button><span class="spacer"></span>':'')+
-  '<button class="btn" data-act="closem">Cancelar</button><button class="btn primary" data-act="saveperson">Guardar</button></footer></div>';
+  '<button class="btn" data-act="printficha">Imprimir ficha</button><button class="btn" data-act="closem">Cancelar</button><button class="btn primary" data-act="saveperson">Guardar</button></footer></div>';
 }
 function savePerson(){
   readForm(); const d=M.d;
@@ -670,6 +739,8 @@ document.addEventListener('click',ev=>{
     case 'edit':S.confirm=null;openModal(el.dataset.id);break;
     case 'closem':S.confirm=null;closeModal();break;
     case 'saveperson':savePerson();break;
+    case 'printficha':readForm();printFicha(M.d);break;
+    case 'printblank':printFicha({});break;
     case 'togbajas':S.showBajas=!S.showBajas;render();break;
     case 'rmfoto':readForm();M.d.foto='';drawModal();break;
     case 'viewdoc':if(M&&M.docs&&M.docs[el.dataset.id])openViewer(M.docs[el.dataset.id]);break;
