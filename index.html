@@ -271,6 +271,9 @@ const S={groups:{},people:{},nov:{},tab:'cal',month:monthStart(todayDn()),sel:to
 
 const groupsList=()=>Object.entries(S.groups).map(([id,g])=>Object.assign({id},g)).sort((a,b)=>(a.orden||0)-(b.orden||0)||String(a.nombre).localeCompare(String(b.nombre)));
 const peopleList=()=>Object.entries(S.people).map(([id,p])=>Object.assign({id},p)).filter(p=>p.activo!==false);
+const MOTIVOS=['Devolución de días','Licencia médica','Franco compensatorio','Licencia especial','Otro'];
+const motivoOf=n=>n.tipo!=='ausencia'?'':(n.motivo||(/devoluci/i.test(n.nota||'')?'Devolución de días':'Sin motivo'));
+const novTag=n=>n.tipo==='vacaciones'?'<span class="tag '+(n.estado==='aprobada'?'ok':n.estado==='rechazada'?'bad':'warn')+'">Vacaciones'+(n.estado==='aprobada'?'':n.estado==='rechazada'?' (rechazada)':' (solicitada)')+'</span>':'<span class="tag '+(n.tipo==='ausencia'?'warn':'ok')+'">'+(n.tipo==='ausencia'?'Ausencia':'Cobertura')+'</span>';
 const novList=()=>Object.entries(S.nov).map(([id,n])=>Object.assign({id},n));
 const ink=c=>{const m=/^#?([0-9a-f]{6})$/i.exec(c||'');if(!m)return '#031128';const n=parseInt(m[1],16),l=(0.299*(n>>16)+0.587*((n>>8)&255)+0.114*(n&255))/255;return l>0.6?'#031128':'#ffffff';};
 const holOf=dn=>{const k=isoOf(dn);for(const id in S.fer){if(S.fer[id].fecha===k)return S.fer[id];}return null;};
@@ -291,7 +294,10 @@ function personState(p,dn){
   for(const n of novList()){
     if(n.personaId!==p.id)continue;
     const a=dnOf(n.desde),b=dnOf(n.hasta); if(isNaN(a)||isNaN(b))continue;
-    if(n.tipo==='ausencia'){
+    if(n.tipo==='vacaciones'&&n.estado==='aprobada'){
+      if(dn>=a&&dn<=b) st=(dn===a&&(st==='D'||st==='N'||st==='U'))?'X':'';
+      else if(dn===b+1&&st==='X') st='';
+    }else if(n.tipo==='ausencia'){
       if(dn>=a&&dn<=b) st=(dn===a)?'X':'';
       else if(dn===b+1&&st==='X') st='';
     }else if(n.tipo==='cobertura'){
@@ -429,7 +435,7 @@ async function initDb(){
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}});}
 
 /* ---------- vistas ---------- */
-const TABS=[['cal','Calendario'],['sheet','Planilla'],['people','Personal'],['nov','Novedades'],['groups','Grupos']];
+const TABS=[['cal','Calendario'],['sheet','Planilla'],['people','Personal'],['nov','Novedades'],['vac','Vacaciones'],['groups','Grupos']];
 function renderTabs(){
   $('#tabs').innerHTML=TABS.map(t=>'<button role="tab" aria-selected="'+(S.tab===t[0])+'" data-act="tab" data-v="'+t[0]+'">'+t[1]+'</button>').join('');
 }
@@ -461,9 +467,9 @@ function dayPanel(dn){
   const line=p=>{const g=p.grupo&&S.groups[p.grupo]; const c=colorOf(p,dn);
     return '<div class="person-line"><i class="sw" style="--c:'+esc(c)+'"></i><span><b>'+esc(p.nombre)+'</b> <small>'+esc(p.funcion||'')+(g?' · '+esc(g.nombre):' · Relevo')+'</small></span></div>';};
   const sec=(t,l)=>l.length?'<h4>'+t+' ('+l.length+')</h4>'+l.map(line).join(''):'';
-  const notes=novList().filter(n=>{const a=dnOf(n.desde),b=dnOf(n.hasta);return dn>=a&&dn<=b;}).map(n=>{
+  const notes=novList().filter(n=>{const a=dnOf(n.desde),b=dnOf(n.hasta);return dn>=a&&dn<=b&&n.estado!=='rechazada';}).map(n=>{
     const p=S.people[n.personaId],c=S.people[n.cubreA];
-    return '<div class="person-line"><span class="tag '+(n.tipo==='ausencia'?'warn':'ok')+'">'+(n.tipo==='ausencia'?'Ausencia':'Cobertura')+'</span><span>'+esc(p?p.nombre:'(persona eliminada)')+(n.tipo==='cobertura'&&c?' cubre a '+esc(c.nombre):'')+(n.nota?'<br><small>'+esc(n.nota)+'</small>':'')+'</span></div>';}).join('');
+    return '<div class="person-line">'+novTag(n)+'<span>'+esc(p?p.nombre:'(persona eliminada)')+(n.tipo==='ausencia'?' · '+esc(motivoOf(n)):'')+(n.tipo==='cobertura'&&c?' cubre a '+esc(c.nombre):'')+(n.nota?'<br><small>'+esc(n.nota)+'</small>':'')+'</span></div>';}).join('');
   const hh=holOf(dn);
   const tags=(hh?'<span class="tag bad">'+(hh.tipo==='no laborable'?'No laborable':'Feriado')+': '+esc(hh.nombre)+'</span> ':'')+(isWe(dn)?'<span class="tag" style="color:#c9a8ff;border-color:#b388ff">'+(dowOf(dn)===0?'Domingo':'Sábado')+'</span>':'');
   return '<h3>'+esc(fmtLong(dn))+'</h3>'+(tags?'<div style="margin-bottom:6px;display:flex;gap:6px;flex-wrap:wrap">'+tags+'</div>':'')+
@@ -524,22 +530,67 @@ function viewPeople(){
     '<div class="tbl-wrap"><table class="list"><thead><tr><th>Nombre</th><th>Grupo</th><th>Legajo / DNI</th><th>Apto médico</th><th>Otros certificados</th><th>Talles</th><th></th></tr></thead><tbody>'+
     (rows||'<tr><td colspan="7" class="empty">No hay personal para mostrar.</td></tr>')+'</tbody></table></div>';
 }
+function vacOverlaps(v){
+  const a=dnOf(v.desde),b=dnOf(v.hasta),me=S.people[v.personaId]; if(!me)return [];
+  return novList().filter(o=>o.tipo==='vacaciones'&&o.id!==v.id&&o.estado!=='rechazada'&&o.personaId!==v.personaId).filter(o=>{
+    const op=S.people[o.personaId]; if(!op||op.grupo!==me.grupo)return false; return dnOf(o.desde)<=b&&dnOf(o.hasta)>=a;}).map(o=>(S.people[o.personaId]||{}).nombre);
+}
+function viewVac(){
+  const ppl=peopleList().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  const opts=ppl.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nombre)+'</option>').join('');
+  const relOpts='<option value="">Sin relevo</option>'+ppl.filter(p=>!p.grupo).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nombre)+'</option>').join('');
+  const y=new Date().getFullYear(), vs=novList().filter(n=>n.tipo==='vacaciones');
+  const days=n=>dnOf(n.hasta)-dnOf(n.desde)+1;
+  const rows=vs.sort((a,b)=>String(b.desde).localeCompare(String(a.desde))).map(n=>{
+    const p=S.people[n.personaId],r=S.people[n.relevo],g=p&&p.grupo&&S.groups[p.grupo],ov=n.estado==='rechazada'?[]:vacOverlaps(n);
+    const conf=S.confirm==='v:'+n.id;
+    return '<tr><td><b>'+esc(p?p.nombre:'(persona eliminada)')+'</b><small>'+esc(g?g.nombre:'Relevo')+'</small></td><td>'+fmtShort(n.desde)+' al '+fmtShort(n.hasta)+'<small>'+days(n)+' días corridos</small></td><td>'+novTag(n)+'</td><td>'+(r?esc(r.nombre):'—')+(ov.length?'<small style="color:var(--bad)">⚠ Coincide con '+esc(ov.join(', '))+' (mismo grupo)</small>':'')+'</td><td>'+esc(n.nota||'')+'</td><td style="white-space:nowrap">'+
+      (n.estado!=='aprobada'?'<button class="btn small primary" data-act="vacestado" data-id="'+esc(n.id)+'" data-v="aprobada">Aprobar</button> ':'')+
+      (n.estado!=='rechazada'?'<button class="btn small" data-act="vacestado" data-id="'+esc(n.id)+'" data-v="rechazada">Rechazar</button> ':'')+
+      (n.estado!=='solicitada'?'<button class="btn small" data-act="vacestado" data-id="'+esc(n.id)+'" data-v="solicitada">Pendiente</button> ':'')+
+      '<button class="btn small danger" data-act="delvac" data-id="'+esc(n.id)+'">'+(conf?'Confirmar borrado':'Borrar')+'</button></td></tr>';}).join('');
+  const resumen=ppl.map(p=>{const t=vs.filter(n=>n.personaId===p.id&&n.estado==='aprobada'&&String(n.desde).slice(0,4)==String(y)).reduce((a,n)=>a+days(n),0);const pend=vs.filter(n=>n.personaId===p.id&&n.estado!=='aprobada'&&n.estado!=='rechazada').length;
+    return '<tr><td><b>'+esc(p.nombre)+'</b></td><td>'+t+' días</td><td>'+(pend?pend+' pendiente'+(pend>1?'s':''):'—')+'</td></tr>';}).join('');
+  return '<div class="card" style="margin-bottom:16px"><h3 style="font-size:22px;margin-bottom:10px">Cargar pedido de vacaciones</h3>'+
+    '<div class="fgrid"><label class="f">Persona<select id="v_pers">'+opts+'</select></label>'+
+    '<label class="f">Desde<input type="date" id="v_desde"></label><label class="f">Hasta (último día)<input type="date" id="v_hasta"></label>'+
+    '<label class="f">Estado<select id="v_estado"><option value="solicitada">Solicitada (pendiente)</option><option value="aprobada">Aprobada</option></select></label>'+
+    '<label class="f">Relevo que lo cubre<select id="v_relevo">'+relOpts+'</select></label>'+
+    '<label class="f">Nota<input type="text" id="v_nota" placeholder="Ej.: vacaciones 2026, pedido por WhatsApp"></label></div>'+
+    '<p class="next" style="margin-top:8px">Una vez <b>aprobadas</b>, la persona baja el primer día y queda fuera hasta la fecha final; si elegís un relevo, éste lo cubre automáticamente (sube el día anterior y baja el posterior). Las pendientes se ven en el calendario pero no cambian el roster.</p>'+
+    '<div style="margin-top:10px"><button class="btn primary" data-act="addvac">Cargar pedido</button> <span id="v_err" style="color:var(--bad);font-size:13px"></span></div></div>'+
+    '<div class="tbl-wrap" style="margin-bottom:16px"><table class="list"><thead><tr><th>Persona</th><th>Fechas</th><th>Estado</th><th>Relevo</th><th>Nota</th><th></th></tr></thead><tbody>'+(rows||'<tr><td colspan="6" class="empty">Sin pedidos de vacaciones cargados.</td></tr>')+'</tbody></table></div>'+
+    '<div class="tbl-wrap"><table class="list"><thead><tr><th>Resumen '+y+'</th><th>Días aprobados</th><th>Pedidos pendientes</th></tr></thead><tbody>'+resumen+'</tbody></table></div>';
+}
+function setCov(id,v){
+  const cid='cov_'+id;
+  if(v.estado==='aprobada'&&v.relevo&&S.people[v.relevo]) put('novedades',cid,{tipo:'cobertura',personaId:v.relevo,cubreA:v.personaId,desde:v.desde,hasta:v.hasta,nota:'Cubre vacaciones',vacId:id});
+  else if(S.nov[cid]) del('novedades',cid);
+}
 function viewNov(){
   const ppl=peopleList().sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
   const opts=ppl.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nombre)+'</option>').join('');
-  const list=novList().sort((a,b)=>String(b.desde).localeCompare(String(a.desde))).map(n=>{
+  const nf=S.novFiltro||'todas';
+  const chips=['todas'].concat(MOTIVOS,['Cobertura']).map(m=>'<button class="btn small'+(nf===m?' primary':'')+'" data-act="novfilt" data-v="'+esc(m)+'">'+(m==='todas'?'Todas':esc(m))+'</button>').join(' ');
+  const list=novList().filter(n=>n.tipo!=='vacaciones').filter(n=>nf==='todas'||(nf==='Cobertura'?n.tipo==='cobertura':(n.tipo==='ausencia'&&(nf==='Otro'?(motivoOf(n)==='Otro'||motivoOf(n)==='Sin motivo'):motivoOf(n)===nf)))).sort((a,b)=>String(b.desde).localeCompare(String(a.desde))).map(n=>{
     const p=S.people[n.personaId],c=S.people[n.cubreA];
     const conf=S.confirm==='n:'+n.id;
-    return '<tr><td><span class="tag '+(n.tipo==='ausencia'?'warn':'ok')+'">'+(n.tipo==='ausencia'?'Ausencia':'Cobertura')+'</span></td><td><b>'+esc(p?p.nombre:'(persona eliminada)')+'</b>'+(n.tipo==='cobertura'&&c?'<small>cubre a '+esc(c.nombre)+'</small>':'')+'</td><td>'+fmtShort(n.desde)+' al '+fmtShort(n.hasta)+'</td><td>'+esc(n.nota||'')+'</td><td><button class="btn small danger" data-act="delnov" data-id="'+esc(n.id)+'">'+(conf?'Confirmar borrado':'Borrar')+'</button></td></tr>';}).join('');
+    return '<tr><td>'+novTag(n)+(n.tipo==='ausencia'?'<small>'+esc(motivoOf(n))+'</small>':'')+'</td><td><b>'+esc(p?p.nombre:'(persona eliminada)')+'</b>'+(n.tipo==='cobertura'&&c?'<small>cubre a '+esc(c.nombre)+'</small>':'')+'</td><td>'+fmtShort(n.desde)+' al '+fmtShort(n.hasta)+'</td><td>'+esc(n.nota||'')+'</td><td><button class="btn small danger" data-act="delnov" data-id="'+esc(n.id)+'">'+(conf?'Confirmar borrado':'Borrar')+'</button></td></tr>';}).join('');
   return '<div class="card" style="margin-bottom:16px"><h3 style="font-size:22px;margin-bottom:10px">Cargar novedad</h3>'+
     '<div class="fgrid"><label class="f">Tipo<select id="n_tipo"><option value="ausencia">Ausencia (baja anticipada, franco, licencia)</option><option value="cobertura">Cobertura (un relevo cubre a otra persona)</option></select></label>'+
+    '<label class="f" id="n_motivo_w">Motivo<select id="n_motivo">'+MOTIVOS.map(m=>'<option>'+m+'</option>').join('')+'</select></label>'+
     '<label class="f">Persona<select id="n_pers">'+opts+'</select></label>'+
     '<label class="f">Desde<input type="date" id="n_desde"></label><label class="f">Hasta<input type="date" id="n_hasta"></label>'+
     '<label class="f" id="n_cubre_w" style="display:none">Cubre a<select id="n_cubre">'+opts+'</select></label>'+
     '<label class="f">Nota<input type="text" id="n_nota" placeholder="Ej.: devolución de días por temporal"></label></div>'+
     '<p class="next" style="margin-top:8px">Ausencia: la persona baja el primer día y queda fuera hasta la fecha final. Cobertura: el relevo sube el día anterior, trabaja los turnos de la persona cubierta y baja el día posterior.</p>'+
     '<div style="margin-top:10px"><button class="btn primary" data-act="addnov">Agregar novedad</button> <span id="n_err" style="color:var(--bad);font-size:13px"></span></div></div>'+
-    '<div class="tbl-wrap"><table class="list"><thead><tr><th>Tipo</th><th>Persona</th><th>Fechas</th><th>Nota</th><th></th></tr></thead><tbody>'+(list||'<tr><td colspan="5" class="empty">Sin novedades cargadas.</td></tr>')+'</tbody></table></div>';
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+chips+'</div>'+
+    '<div class="tbl-wrap" style="margin-bottom:16px"><table class="list"><thead><tr><th>Tipo / motivo</th><th>Persona</th><th>Fechas</th><th>Nota</th><th></th></tr></thead><tbody>'+(list||'<tr><td colspan="5" class="empty">Sin novedades para este filtro.</td></tr>')+'</tbody></table></div>'+
+    (()=>{const y=String(new Date().getFullYear()),days=n=>dnOf(n.hasta)-dnOf(n.desde)+1,acc={};
+      novList().filter(n=>n.tipo==='ausencia'&&String(n.desde).slice(0,4)===y).forEach(n=>{const k=n.personaId,m=motivoOf(n);acc[k]=acc[k]||{};acc[k][m]=(acc[k][m]||0)+days(n);});
+      const rows=Object.keys(acc).map(k=>{const p=S.people[k];return '<tr><td><b>'+esc(p?p.nombre:'(persona eliminada)')+'</b></td><td>'+Object.entries(acc[k]).map(([m,d])=>esc(m)+': <b>'+d+' día'+(d>1?'s':'')+'</b>').join(' · ')+'</td></tr>';}).join('');
+      return '<div class="tbl-wrap"><table class="list"><thead><tr><th>Ausencias '+y+' por persona</th><th>Días por motivo</th></tr></thead><tbody>'+(rows||'<tr><td colspan="2" class="empty">Sin ausencias este año.</td></tr>')+'</tbody></table></div>';})();
 }
 function nextEvents(g){
   const t=todayDn(),out=[]; for(let i=0;i<120&&out.length<4;i++){const s=groupState(g,t+i); if(s==='U')out.push('▲ sube '+fmtShort(isoOf(t+i))); else if(s==='X')out.push('▼ baja '+fmtShort(isoOf(t+i)));}
@@ -579,11 +630,11 @@ function render(){
   b.innerHTML=h;
   const v=$('#view');
   const keep=document.activeElement&&document.activeElement.id;
-  const fn={cal:viewCal,sheet:viewSheet,people:viewPeople,nov:viewNov,groups:viewGroups}[S.tab]; v.innerHTML=fn();
+  const fn={cal:viewCal,sheet:viewSheet,people:viewPeople,nov:viewNov,vac:viewVac,groups:viewGroups}[S.tab]; v.innerHTML=fn();
   if(keep&&(keep==='q')){const el=document.getElementById(keep);if(el){el.focus();const l=el.value.length;try{el.setSelectionRange(l,l);}catch(e){}}}
   if(S.tab==='nov')syncNovForm();
 }
-function syncNovForm(){const t=$('#n_tipo');if(t){$('#n_cubre_w').style.display=t.value==='cobertura'?'flex':'none';}}
+function syncNovForm(){const t=$('#n_tipo');if(t){const mw=$('#n_motivo_w');if(mw)mw.style.display=t.value==='ausencia'?'flex':'none';$('#n_cubre_w').style.display=t.value==='cobertura'?'flex':'none';}}
 
 /* ---------- ficha de personal ---------- */
 let M=null;
@@ -764,8 +815,20 @@ document.addEventListener('click',ev=>{
       if(!pers||!desde||!hasta){err.textContent='Completá persona, desde y hasta.';break;}
       if(dnOf(hasta)<dnOf(desde)){err.textContent='La fecha final es anterior a la inicial.';break;}
       if(tipo==='cobertura'&&(!cubre||cubre===pers)){err.textContent='Elegí a quién cubre (otra persona).';break;}
-      const n={tipo,personaId:pers,desde,hasta,nota}; if(tipo==='cobertura')n.cubreA=cubre;
+      const n={tipo,personaId:pers,desde,hasta,nota}; if(tipo==='cobertura')n.cubreA=cubre; if(tipo==='ausencia')n.motivo=fv('n_motivo')||'Otro';
       put('novedades',uid('n'),n);break;}
+    case 'addvac':{
+      const pers=fv('v_pers'),desde=fv('v_desde'),hasta=fv('v_hasta'),estado=fv('v_estado'),relevo=fv('v_relevo'),nota=fv('v_nota'),err=$('#v_err');
+      if(!pers||!desde||!hasta){err.textContent='Completá persona, desde y hasta.';break;}
+      if(dnOf(hasta)<dnOf(desde)){err.textContent='La fecha final es anterior a la inicial.';break;}
+      if(relevo===pers){err.textContent='El relevo no puede ser la misma persona.';break;}
+      const id=uid('v'), v={tipo:'vacaciones',personaId:pers,desde,hasta,estado,nota,relevo:relevo||''};
+      put('novedades',id,v); setCov(id,v); break;}
+    case 'vacestado':{const id=el.dataset.id,old=S.nov[id]; if(!old)break; const v=Object.assign({},old,{estado:el.dataset.v}); put('novedades',id,v); setCov(id,v); break;}
+    case 'delvac':
+      if(S.confirm==='v:'+el.dataset.id){S.confirm=null;const id=el.dataset.id;if(S.nov['cov_'+id])del('novedades','cov_'+id);del('novedades',id);}else{S.confirm='v:'+el.dataset.id;render();}
+      break;
+    case 'novfilt':S.novFiltro=el.dataset.v;render();break;
     case 'delnov':
       if(S.confirm==='n:'+el.dataset.id){S.confirm=null;del('novedades',el.dataset.id);}else{S.confirm='n:'+el.dataset.id;render();}
       break;
